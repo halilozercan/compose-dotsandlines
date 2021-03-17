@@ -1,19 +1,24 @@
 package com.halilibo.dotsandlines
 
-import android.util.Log
-import androidx.compose.runtime.*
-import androidx.compose.ui.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import com.halilibo.dotsandlines.Dot.Companion.distanceTo
-import com.halilibo.dotsandlines.DotsAndLinesState.Companion.create
 import com.halilibo.dotsandlines.DotsAndLinesState.Companion.next
 import com.halilibo.dotsandlines.DotsAndLinesState.Companion.populationControl
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import com.halilibo.dotsandlines.DotsAndLinesState.Companion.sizeChanged
+import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.isActive
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-@OptIn(ExperimentalCoroutinesApi::class)
 fun Modifier.dotsAndLines(
     contentColor: Color = Color.White,
     threshold: Float,
@@ -22,41 +27,40 @@ fun Modifier.dotsAndLines(
     speed: Float,
     populationFactor: Float
 ) = composed {
-    val coroutineScope = rememberCoroutineScope()
-    val dotsAndLinesStateHolder = remember {
-        DotsAndLinesStateHolder(coroutineScope)
-    }
-
-    val (dotsAndLinesStateFlow, setDotsAndLinesState) = dotsAndLinesStateHolder
-
-    val dotsAndLinesState by dotsAndLinesStateFlow.collectAsState()
-
-    onCommit(speed) {
-        setDotsAndLinesState { it.copy(speed = speed) }
-    }
-
-    onCommit(dotRadius) {
-        setDotsAndLinesState { it.copy(dotRadius = dotRadius) }
-    }
-
-    onCommit(populationFactor) {
-        setDotsAndLinesState { it.populationControl(populationFactor) }
-    }
-
-    onSizeChanged { size ->
-        dotsAndLinesStateHolder.init(
-            create(
-                size = size,
-                populationFactor = populationFactor,
+    var dotsAndLinesState by rememberSaveable {
+        mutableStateOf(
+            DotsAndLinesState(
                 dotRadius = dotRadius,
                 speed = speed
             )
         )
     }
-    .drawBehind {
-        @Suppress("NAME_SHADOWING")
-        val dotsAndLinesState = dotsAndLinesState ?: return@drawBehind
 
+    LaunchedEffect(speed, dotRadius, populationFactor) {
+        dotsAndLinesState = dotsAndLinesState.copy(
+            speed = speed,
+            dotRadius = dotRadius
+        ).populationControl(populationFactor)
+    }
+
+    LaunchedEffect(Unit) {
+        var lastFrame = 0L
+        while (isActive) {
+            val nextFrame = awaitFrame() / 100_000L
+            if (lastFrame != 0L) {
+                val period = nextFrame - lastFrame
+                dotsAndLinesState = dotsAndLinesState.next(period)
+            }
+            lastFrame = nextFrame
+        }
+    }
+
+    onSizeChanged {
+        dotsAndLinesState = dotsAndLinesState.sizeChanged(
+            size = it,
+            populationFactor = populationFactor
+        )
+    }.drawBehind {
         dotsAndLinesState.dots.forEach {
             drawCircle(contentColor, radius = dotRadius, center = it.position)
         }
@@ -76,51 +80,4 @@ fun Modifier.dotsAndLines(
             }
         }
     }
-}
-
-class DotsAndLinesStateHolder(
-    private val coroutineScope: CoroutineScope
-) {
-
-    private val mutationFlow = MutableSharedFlow<(DotsAndLinesState) -> DotsAndLinesState>(
-        replay = 10,
-        extraBufferCapacity = 100
-    )
-
-    private val mutableStateFlow = MutableStateFlow<DotsAndLinesState?>(null)
-    private val state: StateFlow<DotsAndLinesState?> = mutableStateFlow
-
-    fun init(initialState: DotsAndLinesState) {
-        if(mutableStateFlow.value != null) return
-
-        mutableStateFlow.value = initialState
-
-        coroutineScope.launch {
-            mutationFlow.collect { mutate ->
-                mutableStateFlow.value = mutableStateFlow.value?.let(mutate)
-            }
-        }
-
-        coroutineScope.launch {
-            while (isActive) {
-                val period = 1000L / 60
-                delay(period)
-
-                mutationFlow.emit { it.next(period) }
-            }
-        }
-    }
-
-    operator fun component1(): StateFlow<DotsAndLinesState?> {
-        return state
-    }
-
-    operator fun component2(): (((DotsAndLinesState) -> DotsAndLinesState)) -> Unit {
-        return { block ->
-            coroutineScope.launch {
-                mutationFlow.emit(block)
-            }
-        }
-    }
-
 }

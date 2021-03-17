@@ -1,13 +1,20 @@
 package com.halilibo.dotsandlines
 
+import android.os.Parcelable
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import kotlinx.android.parcel.Parcelize
+import java.lang.Math.sqrt
 import java.util.*
+import kotlin.math.sqrt
 
+@Parcelize
 data class Dot(
     val position: Offset,
     val vector: Offset
-) {
+) : Parcelable {
     companion object {
         /**
          * Calculate this [Dot]'s distance to another one.
@@ -29,13 +36,21 @@ data class Dot(
             borders: IntSize,
             durationMillis: Long,
             dotRadius: Float,
-            speedCoefficient: Float
+            speedCoefficient: Float,
+            gravity: Offset? = null
         ): Dot {
             val speed = vector * speedCoefficient
+
+            // A vector that starts from current position and targets [gravity]
+            val gravitationalVector = gravity?.let {
+                Log.d("Gravity", "${Offset(x = it.x - position.x, y = it.y - position.y)}")
+                Offset(x = it.x - position.x, y = it.y - position.y).normalize() * 100f * speedCoefficient
+            } ?: Offset.Zero
+
             return Dot(
                 position = position + Offset(
-                    x = speed.x / 1000f * durationMillis,
-                    y = speed.y / 1000f * durationMillis,
+                    x = (speed.x + gravitationalVector.x) / 1000f * durationMillis,
+                    y = (speed.y + gravitationalVector.y) / 1000f * durationMillis,
                 ),
                 vector = vector
             ).let { (position, vector) ->
@@ -83,10 +98,22 @@ data class Dot(
                 ),
                 vector = Offset(
                     // First, randomize direction. Second, randomize amplitude of speed vector.
-                    listOf(-1, 1).random() * (borders.width / 50..borders.width / 20).random().toFloat(),
-                    listOf(-1, 1).random() * (borders.height / 50..borders.height / 20).random().toFloat()
+                    listOf(-1f, 1f).random() * ((borders.width.toFloat() / 100f).toInt()..(borders.width.toFloat() / 10f).toInt()).random()
+                        .toFloat(),
+                    listOf(-1f, 1f).random() * ((borders.height.toFloat() / 100f).toInt()..(borders.height.toFloat() / 10f).toInt()).random()
+                        .toFloat()
                 )
             )
+        }
+
+        // Treat offset as a vector
+        fun Offset.normalize(): Offset {
+            val l = 1.0f / length()
+            return Offset(x * l, y * l)
+        }
+
+        fun Offset.length(): Float {
+            return sqrt(x * x + y * y)
         }
     }
 }

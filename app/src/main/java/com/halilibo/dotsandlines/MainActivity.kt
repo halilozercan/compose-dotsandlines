@@ -1,32 +1,45 @@
 package com.halilibo.dotsandlines
 
 import android.os.Bundle
+import android.os.Parcelable
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.Text
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Slider
+import androidx.compose.material.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.setContent
 import androidx.compose.ui.unit.dp
 import com.halilibo.dotsandlines.ui.DotsAndLinesTheme
+import kotlinx.android.parcel.Parcelize
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+    @ExperimentalMaterialApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            DotsAndLinesTheme {
-                var dotsAndLinesConfig by remember { mutableStateOf(DotsAndLinesConfig()) }
-                Scaffold(
-                    drawerElevation = 0.dp,
-                    drawerBackgroundColor = Color.Transparent,
-                    drawerContent = {
+            val (isDarkTheme, setDarkTheme) = rememberSaveable { mutableStateOf(true) }
+            DotsAndLinesTheme(isDarkTheme) {
+                var dotsAndLinesConfig by rememberSaveable { mutableStateOf(DotsAndLinesConfig()) }
+                val scaffoldState = rememberBottomSheetScaffoldState()
+                val coroutineScope = rememberCoroutineScope()
+                BottomSheetScaffold(
+                    scaffoldState = scaffoldState,
+                    sheetPeekHeight = 0.dp,
+                    sheetBackgroundColor = MaterialTheme.colors.surface.copy(alpha = 0.5f),
+                    sheetContentColor = MaterialTheme.colors.onSurface,
+                    sheetElevation = 0.dp,
+                    sheetGesturesEnabled = false,
+                    sheetContent = {
+                        Row(modifier = Modifier.padding(8.dp)) {
+                            Checkbox(
+                                checked = isDarkTheme,
+                                onCheckedChange = { setDarkTheme(it) })
+                            Text("Dark Theme")
+                        }
                         DotsAndLinesSliderRow(
                             title = "Connectivity",
                             value = dotsAndLinesConfig.threshold,
@@ -54,7 +67,7 @@ class MainActivity : AppCompatActivity() {
                         DotsAndLinesSliderRow(
                             title = "Speed",
                             value = dotsAndLinesConfig.speedCoefficient,
-                            valueRange = 0.1f..20f,
+                            valueRange = 0.001f..0.1f,
                             onValueChanged = {
                                 dotsAndLinesConfig = dotsAndLinesConfig.copy(speedCoefficient = it)
                             }
@@ -62,63 +75,49 @@ class MainActivity : AppCompatActivity() {
                         DotsAndLinesSliderRow(
                             title = "Density",
                             value = dotsAndLinesConfig.population,
-                            valueRange = 0.2f..5f,
+                            valueRange = 0.1f..2f,
                             onValueChanged = {
                                 dotsAndLinesConfig = dotsAndLinesConfig.copy(population = it)
                             }
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Button(
+                                onClick = { coroutineScope.launch { scaffoldState.bottomSheetState.collapse() } },
+                                modifier = Modifier
+                                    .padding(8.dp)
+                            ) {
+                                Text("Done")
+                            }
+                        }
                     }
                 ) {
                     with(dotsAndLinesConfig) {
-                        Box(modifier = Modifier.padding(it).fillMaxSize().background(Color.Black)) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(0.5f).align(Alignment.TopStart)
-                                    .padding(8.dp).background(Color.Black)
-                                    .border(2.dp, Color.White)
-                                    .dotsAndLines(
-                                        threshold = threshold,
-                                        maxThickness = maxThickness,
-                                        dotRadius = dotRadius,
-                                        speed = speedCoefficient,
-                                        populationFactor = population
-                                    )
-                            )
-                            Box(
-                                modifier = Modifier.fillMaxSize(0.5f).align(Alignment.BottomStart)
-                                    .padding(8.dp).background(Color.Black)
-                                    .border(2.dp, Color.White)
-                                    .dotsAndLines(
-                                        threshold = threshold,
-                                        maxThickness = maxThickness,
-                                        dotRadius = dotRadius,
-                                        speed = speedCoefficient,
-                                        populationFactor = population
-                                    )
-                            )
-                            Box(
-                                modifier = Modifier.fillMaxSize(0.5f).align(Alignment.TopEnd)
-                                    .padding(8.dp).background(Color.Black)
-                                    .border(2.dp, Color.White)
-                                    .dotsAndLines(
-                                        threshold = threshold,
-                                        maxThickness = maxThickness,
-                                        dotRadius = dotRadius,
-                                        speed = speedCoefficient,
-                                        populationFactor = population
-                                    )
-                            )
-                            Box(
-                                modifier = Modifier.fillMaxSize(0.5f).align(Alignment.BottomEnd)
-                                    .padding(8.dp).background(Color.Black)
-                                    .border(2.dp, Color.White)
-                                    .dotsAndLines(
-                                        threshold = threshold,
-                                        maxThickness = maxThickness,
-                                        dotRadius = dotRadius,
-                                        speed = speedCoefficient,
-                                        populationFactor = population
-                                    )
-                            )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colors.surface)
+                                .dotsAndLines(
+                                    contentColor = MaterialTheme.colors.onSurface,
+                                    threshold = threshold,
+                                    maxThickness = maxThickness,
+                                    dotRadius = dotRadius,
+                                    speed = speedCoefficient,
+                                    populationFactor = population
+                                )
+                        ) {
+                            if (scaffoldState.bottomSheetState.isCollapsed && !scaffoldState.bottomSheetState.isAnimationRunning) {
+                                Button(
+                                    onClick = { coroutineScope.launch { scaffoldState.bottomSheetState.expand() } },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(8.dp)
+                                ) {
+                                    Text("Options")
+                                }
+                            }
                         }
                     }
                 }
@@ -134,26 +133,21 @@ fun DotsAndLinesSliderRow(
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChanged: (Float) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .background(color = MaterialTheme.colors.surface)
-            .padding(horizontal = 8.dp)
-    ) {
-        Column {
-            Text("$title: $value")
-            Slider(
-                value = value,
-                valueRange = valueRange,
-                onValueChange = onValueChanged
-            )
-        }
+    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+        Text("$title: $value")
+        Slider(
+            value = value,
+            valueRange = valueRange,
+            onValueChange = onValueChanged
+        )
     }
 }
 
+@Parcelize
 data class DotsAndLinesConfig(
-    val threshold: Float = 0.1f,
+    val threshold: Float = 0.06f,
     val maxThickness: Float = 6f,
     val dotRadius: Float = 4f,
-    val speedCoefficient: Float = 1f,
-    val population: Float = 1f // per 100^2 pixels
-)
+    val speedCoefficient: Float = 0.05f,
+    val population: Float = 0.3f // per 100^2 pixels
+) : Parcelable

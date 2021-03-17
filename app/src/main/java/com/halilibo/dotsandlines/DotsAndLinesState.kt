@@ -1,35 +1,40 @@
 package com.halilibo.dotsandlines
 
+import android.os.Parcelable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.halilibo.dotsandlines.Dot.Companion.next
+import kotlinx.android.parcel.Parcelize
 import kotlin.math.roundToInt
 
+@Parcelize
 data class DotsAndLinesState(
-    val dots: List<Dot>,
+    val dots: List<Dot> = emptyList(),
     val dotRadius: Float,
-    val size: IntSize,
+    val size: IntSize = IntSize.Zero,
     val speed: Float
-) {
+) : Parcelable {
+
     companion object {
-
-        fun create(
+        // TODO(halilozercan): A real size changed algorithm instead of resetting everything
+        fun DotsAndLinesState.sizeChanged(
             size: IntSize,
-            populationFactor: Float,
-            dotRadius: Float,
-            speed: Float
-        ) = DotsAndLinesState(
-            dots = (0..size.realPopulation(populationFactor)).map {
-                Dot.create(size)
-            },
-            dotRadius = dotRadius,
-            size = size,
-            speed = speed
-        )
+            populationFactor: Float
+        ) : DotsAndLinesState {
+            if (size == this.size) return this
+            return copy(
+                dots = (0..size.realPopulation(populationFactor)).map {
+                    Dot.create(size)
+                },
+                size = size
+            )
+        }
 
-        fun DotsAndLinesState.next(durationMillis: Long): DotsAndLinesState {
+        fun DotsAndLinesState.next(durationMillis: Long, gravity: Offset? = null): DotsAndLinesState {
             return copy(
                 dots = dots.map {
-                    it.next(size, durationMillis, dotRadius, speed)
+                    it.next(size, durationMillis, dotRadius, speed, gravity)
                 }
             )
         }
