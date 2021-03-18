@@ -4,4 +4,4 @@ Inspired by [this animation](https://nbasic.net/apps/particles.html) that I foun
 
 Full animation can be seen [here](https://youtu.be/iCe5f7L9vBg)
 
-![Preview](https://github.com/halilozercan/compose-dotsandlines/raw/master/dotsandlines.gif)
+![Preview](https://github.com/halilozercan/compose-dotsandlines/raw/main/dotsandlines.gif)
